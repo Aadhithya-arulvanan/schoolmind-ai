@@ -72,7 +72,7 @@ def ask_schoolmind(question):
             "🚨 At-Risk Students\n\n"
             "Criteria:\n"
             "- Attendance below 75%\n"
-            "- OR Pending Fee above ₹25,000\n"
+            "- OR Pending Fee above ₹30,000\n"
             "- OR Total Marks below 220\n\n"
         )
 
