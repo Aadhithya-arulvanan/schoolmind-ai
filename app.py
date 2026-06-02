@@ -1,3 +1,7 @@
+import os
+
+if not os.path.exists("chroma_db"):
+    import load_all_data
 import streamlit as st
 
 from schoolmind_ai import ask_schoolmind
