@@ -62,10 +62,30 @@ def ask_schoolmind(question):
     # RISK ANALYSIS
     elif intent == "risk_analysis":
 
-        context = get_at_risk_students().to_string(
-            index=False
+        students = get_at_risk_students()
+
+        if students.empty:
+
+            return "No at-risk students found."
+
+        answer = (
+            "🚨 At-Risk Students\n\n"
+            "Criteria:\n"
+            "- Attendance below 75%\n"
+            "- OR Pending Fee above ₹10,000\n"
+            "- OR Total Marks below 220\n\n"
         )
 
+        for _, row in students.iterrows():
+
+            answer += (
+                f"Name: {row['Name']}\n"
+                f"Attendance: {row['AttendancePercent']}%\n"
+                f"Pending Fee: ₹{row['PendingFee']}\n"
+                f"Total Marks: {row['Total']}\n\n"
+            )
+
+        return answer
     # PDF REPORT GENERATION
     elif intent == "student_report":
 
