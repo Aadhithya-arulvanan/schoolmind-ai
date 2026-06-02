@@ -1,0 +1,6 @@
+streamlit
+pandas
+chromadb
+google-generativeai
+reportlab
+langdetect
