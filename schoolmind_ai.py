@@ -116,10 +116,8 @@ Include:
             report_text
         )
 
-        return (
-            f"PDF Report Generated:\n"
-            f"{pdf_file}"
-        )
+        
+        return pdf_file
 
     # STUDENT SUMMARY
     elif intent == "student_summary":
