@@ -4,8 +4,8 @@ client = chromadb.PersistentClient(
     path="./chroma_db"
 )
 
-collection = client.get_collection(
-    "school_data"
+collection = client.get_or_create_collection(
+    name="school_data"
 )
 
 def get_student_records(name):
