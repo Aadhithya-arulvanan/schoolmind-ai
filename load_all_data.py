@@ -1,110 +1,79 @@
-import pandas as pd
+"""
+load_all_data.py
+Populates the ChromaDB vector store from schoolmind.db (SQLite) — not from CSVs.
+SQLite is now the single source of truth; Chroma is a derived index used only
+for semantic name/record lookup (see chroma_tools.py), never for structured
+queries like "who has pending fees."
+"""
+
 import chromadb
+from db import get_connection
 
-# Create / connect to database
-client = chromadb.PersistentClient(
-    path="./chroma_db"
-)
+client = chromadb.PersistentClient(path="./chroma_db")
+collection = client.get_or_create_collection(name="school_data")
 
-# Create collection
-collection = client.get_or_create_collection(
-    name="school_data"
-)
+conn = get_connection()
 
-# -----------------------------
-# ATTENDANCE
-# -----------------------------
+rows = conn.execute(
+    """SELECT s.student_id, s.name, s.class,
+              a.attendance_percent, a.days_present, a.days_absent,
+              f.total_fee, f.paid_fee, f.pending_fee,
+              m.maths, m.science, m.english, m.total
+       FROM students s
+       JOIN attendance a ON a.student_id = s.student_id
+       JOIN fees f ON f.student_id = s.student_id
+       JOIN marks m ON m.student_id = s.student_id"""
+).fetchall()
 
-attendance_df = pd.read_csv(
-    "data/attendance.csv"
-)
+for row in rows:
+    student_id = row["student_id"]
 
-for _, row in attendance_df.iterrows():
-
-    text = f"""
+    attendance_text = f"""
 Type: Attendance
-
-Student Name: {row['Name']}
-Student ID: {row['StudentID']}
-Class: {row['Class']}
-Attendance Percentage: {row['AttendancePercent']}
-Days Present: {row['DaysPresent']}
-Days Absent: {row['DaysAbsent']}
+Student Name: {row['name']}
+Student ID: {student_id}
+Class: {row['class']}
+Attendance Percentage: {row['attendance_percent']}
+Days Present: {row['days_present']}
+Days Absent: {row['days_absent']}
 """
-
-    collection.add(
-        documents=[text],
-        ids=[f"attendance_{row['StudentID']}"],
-        metadatas=[{
-            "type": "attendance",
-            "student_id": str(row["StudentID"])
-        }]
-    )
-
-# -----------------------------
-# FEES
-# -----------------------------
-
-fees_df = pd.read_csv(
-    "data/fees.csv"
-)
-
-for _, row in fees_df.iterrows():
-
-    text = f"""
+    fees_text = f"""
 Type: Fees
-
-Student Name: {row['Name']}
-Student ID: {row['StudentID']}
-Class: {row['Class']}
-Total Fee: {row['TotalFee']}
-Paid Fee: {row['PaidFee']}
-Pending Fee: {row['PendingFee']}
+Student Name: {row['name']}
+Student ID: {student_id}
+Class: {row['class']}
+Total Fee: {row['total_fee']}
+Paid Fee: {row['paid_fee']}
+Pending Fee: {row['pending_fee']}
 """
-
-    collection.add(
-        documents=[text],
-        ids=[f"fees_{row['StudentID']}"],
-        metadatas=[{
-            "type": "fees",
-            "student_id": str(row["StudentID"])
-        }]
-    )
-
-# -----------------------------
-# MARKS
-# -----------------------------
-
-marks_df = pd.read_csv(
-    "data/marks.csv"
-)
-
-for _, row in marks_df.iterrows():
-
-    text = f"""
+    marks_text = f"""
 Type: Marks
-
-Student Name: {row['Name']}
-Student ID: {row['StudentID']}
-Class: {row['Class']}
-Maths: {row['Maths']}
-Science: {row['Science']}
-English: {row['English']}
-Total Marks: {row['Total']}
+Student Name: {row['name']}
+Student ID: {student_id}
+Class: {row['class']}
+Maths: {row['maths']}
+Science: {row['science']}
+English: {row['english']}
+Total Marks: {row['total']}
 """
 
     collection.add(
-        documents=[text],
-        ids=[f"marks_{row['StudentID']}"],
-        metadatas=[{
-            "type": "marks",
-            "student_id": str(row["StudentID"])
-        }]
+        documents=[attendance_text],
+        ids=[f"attendance_{student_id}"],
+        metadatas=[{"type": "attendance", "student_id": str(student_id)}],
     )
+    collection.add(
+        documents=[fees_text],
+        ids=[f"fees_{student_id}"],
+        metadatas=[{"type": "fees", "student_id": str(student_id)}],
+    )
+    collection.add(
+        documents=[marks_text],
+        ids=[f"marks_{student_id}"],
+        metadatas=[{"type": "marks", "student_id": str(student_id)}],
+    )
+
+conn.close()
 
 print("All data loaded successfully!")
-
-print(
-    "Total records:",
-    collection.count()
-)
+print("Total records:", collection.count())
