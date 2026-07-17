@@ -1,8 +1,6 @@
 import os
 
-# Bootstrap order matters: SQLite is now the source of truth.
-# 1) Build schoolmind.db from the raw CSVs if it doesn't exist yet.
-# 2) Build the Chroma vector index FROM schoolmind.db (not from CSVs).
+
 if not os.path.exists("schoolmind.db"):
     from db import migrate_csv_to_sqlite
     migrate_csv_to_sqlite()
