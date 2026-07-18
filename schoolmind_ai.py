@@ -20,12 +20,10 @@ from local_name import extract_name
 
 import os
 
-genai.configure(
-    api_key=
-        "GEMINI_API_KEY"
-    
-)
+import streamlit as st
+import google.generativeai as genai
 
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 model = genai.GenerativeModel(
     "gemini-3.1-flash-lite"
 )
