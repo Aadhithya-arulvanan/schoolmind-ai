@@ -139,3 +139,59 @@ def get_all_attendance():
     )
     conn.close()
     return df
+def query_marks(order_by="total", ascending=False, limit=None, name=None):
+    conn = get_connection()
+    query = """SELECT s.student_id AS StudentID, s.name AS Name, s.class AS Class,
+                      m.maths AS Maths, m.science AS Science, m.english AS English, m.total AS Total
+               FROM marks m JOIN students s ON s.student_id = m.student_id"""
+    params = []
+    if name:
+        query += " WHERE s.name LIKE ?"
+        params.append(f"%{name}%")
+    col = {"maths": "m.maths", "science": "m.science", "english": "m.english", "total": "m.total"}.get(order_by, "m.total")
+    query += f" ORDER BY {col} {'ASC' if ascending else 'DESC'}"
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return df
+
+
+def query_fees(order_by="pending_fee", ascending=False, limit=None, name=None):
+    conn = get_connection()
+    query = """SELECT s.student_id AS StudentID, s.name AS Name, s.class AS Class,
+                      f.total_fee AS TotalFee, f.paid_fee AS PaidFee, f.pending_fee AS PendingFee
+               FROM fees f JOIN students s ON s.student_id = f.student_id"""
+    params = []
+    if name:
+        query += " WHERE s.name LIKE ?"
+        params.append(f"%{name}%")
+    col = {"pending_fee": "f.pending_fee", "total_fee": "f.total_fee", "paid_fee": "f.paid_fee"}.get(order_by, "f.pending_fee")
+    query += f" ORDER BY {col} {'ASC' if ascending else 'DESC'}"
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return df
+
+
+def query_attendance(order_by="attendance_percent", ascending=False, limit=None, name=None):
+    conn = get_connection()
+    query = """SELECT s.student_id AS StudentID, s.name AS Name, s.class AS Class,
+                      a.attendance_percent AS AttendancePercent,
+                      a.days_present AS DaysPresent, a.days_absent AS DaysAbsent
+               FROM attendance a JOIN students s ON s.student_id = a.student_id"""
+    params = []
+    if name:
+        query += " WHERE s.name LIKE ?"
+        params.append(f"%{name}%")
+    col = {"attendance_percent": "a.attendance_percent"}.get(order_by, "a.attendance_percent")
+    query += f" ORDER BY {col} {'ASC' if ascending else 'DESC'}"
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return df

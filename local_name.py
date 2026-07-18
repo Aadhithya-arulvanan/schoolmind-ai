@@ -1,15 +1,15 @@
-import pandas as pd
+from db import get_connection
 
 
 def extract_name(question):
 
     q = question.lower()
 
-    marks_df = pd.read_csv(
-        "data/marks.csv"
-    )
-
-    names = marks_df["Name"].tolist()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM students")
+    names = [row["name"] for row in cur.fetchall()]
+    conn.close()
 
     for name in names:
 

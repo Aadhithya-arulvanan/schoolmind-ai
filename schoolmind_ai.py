@@ -8,7 +8,10 @@ from analytics import (
     get_all_marks,
     get_all_fees,
     get_all_attendance,
-    get_at_risk_students
+    get_at_risk_students,
+    query_marks,
+    query_fees,
+    query_attendance,
 )
 
 from local_intent import classify_intent
@@ -18,15 +21,25 @@ from local_name import extract_name
 import os
 
 genai.configure(
-    api_key=os.getenv(
+    api_key=
         "GEMINI_API_KEY"
-    )
+    
 )
 
 model = genai.GenerativeModel(
     "gemini-3.1-flash-lite"
 )
 
+def parse_query_intent(question):
+    q = question.lower()
+    ascending = any(w in q for w in ["lowest", "least", "worst", "minimum"])
+    wants_ranked = ascending or any(w in q for w in ["highest", "top", "best", "maximum"])
+    limit = 1
+    for word in q.split():
+        if word.isdigit():
+            limit = int(word)
+    name = extract_name(question)
+    return {"ranked": wants_ranked, "ascending": ascending, "limit": limit, "name": name}
 
 def ask_schoolmind(question):
 
@@ -39,25 +52,18 @@ def ask_schoolmind(question):
     )
 
     # MARKS QUESTIONS
-    if intent == "marks_query":
+    if intent in ("marks_query", "fees_query", "attendance_query"):
+        q_info = parse_query_intent(question)
+        query_fn = {"marks_query": query_marks, "fees_query": query_fees, "attendance_query": query_attendance}[intent]
 
-        context = get_all_marks().to_string(
-            index=False
-        )
+        if q_info["name"]:
+            result_df = query_fn(name=q_info["name"])
+        elif q_info["ranked"]:
+            result_df = query_fn(ascending=q_info["ascending"], limit=q_info["limit"])
+        else:
+            result_df = query_fn()  # fallback: full table, only for genuinely open-ended questions
 
-    # FEES QUESTIONS
-    elif intent == "fees_query":
-
-        context = get_all_fees().to_string(
-            index=False
-        )
-
-    # ATTENDANCE QUESTIONS
-    elif intent == "attendance_query":
-
-        context = get_all_attendance().to_string(
-            index=False
-        )
+        context = result_df.to_string(index=False)
 
     # RISK ANALYSIS
     elif intent == "risk_analysis":
@@ -110,16 +116,24 @@ def ask_schoolmind(question):
         )
 
         prompt = f"""
-Create a professional student report.
+Create a professional student report using ONLY the data provided below.
 
 Language: {report_language}
 
 Student Data:
-
 {context}
 
-Include:
+Rules:
+- If "Student Data" above is empty or does not contain attendance, fee, or
+  marks information, do NOT generate a report. Instead respond only with:
+  "No records were found for this student — a report cannot be generated."
+- Do not invent, estimate, or infer any number, grade, or attendance figure
+  that is not explicitly present in the data above.
+- If one category (e.g. Financial Status) is missing from the data but
+  others are present, state "Data not available" for that section rather
+  than guessing.
 
+Include (only using sections supported by the data):
 1. Student Profile
 2. Academic Performance
 3. Attendance
@@ -163,16 +177,24 @@ Include:
         )
 
         summary_prompt = f"""
-Create a professional student summary.
+Create a professional student summary using ONLY the data provided below.
 
 Language: {summary_language}
 
 Student Data:
-
 {context}
 
-Include:
+Rules:
+- If "Student Data" above is empty or does not contain attendance, fee, or
+  marks information, do NOT generate a summary. Instead respond only with:
+  "No records were found for this student — a summary cannot be generated."
+- Do not invent, estimate, or infer any number, grade, or attendance figure
+  that is not explicitly present in the data above.
+- If one category (e.g. Financial Status) is missing from the data but
+  others are present, state "Data not available" for that section rather
+  than guessing.
 
+Include (only using sections supported by the data):
 1. Student Profile
 2. Academic Performance
 3. Attendance
@@ -194,22 +216,25 @@ Include:
         )
 
     answer_prompt = f"""
-You are SchoolMind AI.
+You are SchoolMind AI, a school data assistant.
 
 Question:
 {question}
 
-Data:
+Data (already filtered/sorted to answer this exact question — do not re-rank or recompute):
 {context}
 
 Rules:
-
-1. Use ONLY the provided data.
-2. Do not make up information.
-3. If asked for highest, find highest.
-4. If asked for lowest, find lowest.
-5. If asked for rankings, rank students.
-6. Be concise and accurate.
+1. Use ONLY the rows in "Data" above. Never use outside knowledge about
+   students, schools, or typical academic performance.
+2. Do not perform any additional ranking, sorting, or filtering — the data
+   given is already the answer set.
+3. If "Data" is empty or contains no rows, respond exactly with:
+   "I couldn't find any records matching that question."
+   Do not guess a plausible-sounding name or number.
+4. State the answer in one or two plain sentences. Include the exact
+   figure(s) from the data (do not round or approximate).
+5. Do not mention SQL, databases, or how the data was retrieved.
 """
 
     print("\nINTENT:", intent)
